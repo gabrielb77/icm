@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  icm-postgres:
+    image: localregistry:5000/postgres:9.2-alpine
+    deploy:
+      replicas: 1
+    ports:
+      - "5432:5432"
+    volumes:
+      - icm-postgres-pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres-passwd
+      - PGDATA=/var/lib/postgresql/data
+    secrets:
+      - postgres-passwd
+    healthcheck:
+      test: ["CMD", "su", "-l", "postgres", "-c pg_ctl status -D /var/lib/postgresql/data"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  icm-web:
+    image: localregistry:5000/icm:4.0
+    deploy:
+      replicas: 1
+    ports:
+      - "9080:80"
+      - "9443:443"
+    volumes:
+      - icm-web-root:/var/www/html/icm
+      - icm-bkg:/export/home/psc
+      - icm-httpd-logs:/var/log/httpd
+    secrets:
+      - server.key
+      - server.crt
+
+volumes:
+  icm-postgres-pgdata:
+    driver_opts:
+      type: "nfs"
+      o: "addr=storage,nolock,soft,rw"
+      device: ":/ibm/cluster_docker/icm-postgres-pgdata"
+
+  icm-web-root:
+    driver_opts:
+      type: "nfs"
+      o: "addr=storage,nolock,soft,rw"
+      device: ":/ibm/cluster_docker/icm-web-root"
+
+  icm-bkg:
+    driver_opts:
+      type: "nfs"
+      o: "addr=storage,nolock,soft,rw"
+      device: ":/ibm/cluster_docker/icm-bkg"
+
+  icm-httpd-logs:
+    driver_opts:
+      type: "nfs"
+      o: "addr=storage,nolock,soft,rw"
+      device: ":/ibm/cluster_docker/icm-httpd-logs"
+
+secrets:
+  postgres-passwd:
+    file: postgres-passwd
+
+  server.key:
+    file: server.key
+
+  server.crt:
+    file: server.crt
